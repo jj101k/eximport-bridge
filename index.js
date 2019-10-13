@@ -1,5 +1,8 @@
 /**
- * @typedef {(namespace: {[symbol: string]: *}) => *} importer
+ * @typedef {{[symbol: string]: *}} exported_namespace
+ */
+/**
+ * @typedef {(namespace: exported_namespace) => *} importer
  */
 
 class EximportBridge {
@@ -15,13 +18,13 @@ class EximportBridge {
         /** @type {?importer[]} */
         this.importers = []
         /**
-         * @type {{[symbol: string]: *}}
+         * @type {exported_namespace}
          */
         this.ns = {}
     }
     /**
      *
-     * @param {{[symbol: string]: *}} finished_exports
+     * @param {exported_namespace} finished_exports
      */
     commit(finished_exports) {
         Object.assign(this.ns, finished_exports)
