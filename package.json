@@ -7,6 +7,9 @@
     "type": "git",
     "url": "https://github.com/jj101k/eximport-bridge.git"
   },
+  "scripts": {
+    "test": "node ./test.js"
+  },
   "keywords": [
     "import",
     "export",
