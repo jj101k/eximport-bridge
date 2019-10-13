@@ -15,25 +15,28 @@ class EximportBridge {
         return new EximportBridge()
     }
     constructor() {
-        /** @type {?importer[]} */
-        this.importers = []
+        /**
+         * @type {?boolean}
+         */
+        this.state = null
+        this.promise = new Promise(
+            /**
+             * @param {exported_namespace} ns
+             */
+            resolve => this.commit = ns => {
+                this.state = true
+                Object.assign(this.ns, ns)
+                resolve(this.ns)
+            }
+        )
         /**
          * @type {exported_namespace}
          */
         this.ns = {}
     }
     /**
+     * Deprecated.
      *
-     * @param {exported_namespace} finished_exports
-     */
-    commit(finished_exports) {
-        Object.assign(this.ns, finished_exports)
-        for(const f of this.importers) {
-            f(this.ns)
-        }
-        this.importers = null
-    }
-    /**
      * This adds an importer hook. Usually this would be added implicitly via
      * eximport, typically in a pattern like:
      *
@@ -48,10 +51,27 @@ class EximportBridge {
      * @param {importer} f
      */
     importer(f) {
-        if(this.importers) {
-            this.importers.push(f)
+        return this.then(ns => f(ns))
+    }
+    /**
+     * This works like Promise.prototype.then() except that the function will be
+     * evaluated before return if the promise is already resolved. This allows
+     * you to get immediate evaluation in contexts which support it.
+     *
+     * @param {(ns: exported_namespace) => *} onfulfilled
+     * @param {?(reason?: *) => *} onrejected
+     */
+    then(onfulfilled, onrejected = null) {
+        if(this.state !== null) {
+            if(this.state) {
+                return Promise.resolve(onfulfilled(this.ns))
+            } else if(onrejected) {
+                return Promise.resolve(onrejected())
+            } else {
+                return this
+            }
         } else {
-            f(this.ns)
+            return this.promise.then(onfulfilled, onrejected)
         }
     }
 }
