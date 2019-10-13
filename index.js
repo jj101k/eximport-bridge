@@ -1,3 +1,7 @@
+/**
+ * @typedef {(namespace: {[symbol: string]: *}) => *} importer
+ */
+
 class EximportBridge {
     /**
      * This is a convenience property so you can just do
@@ -8,7 +12,7 @@ class EximportBridge {
         return new EximportBridge()
     }
     constructor() {
-        /** @type {?((namespace: {[symbol: string]: *}) => *)[]} */
+        /** @type {?importer[]} */
         this.importers = []
         /**
          * @type {{[symbol: string]: *}}
@@ -26,6 +30,20 @@ class EximportBridge {
         }
         this.importers = null
     }
+    /**
+     * This adds an importer hook. Usually this would be added implicitly via
+     * eximport, typically in a pattern like:
+     *
+     * ```
+     *  var Foo = undefined;
+     *  require("foo").importer(ns => Foo = ns.Foo)
+     * ```
+     *
+     * Once the file has been completely loaded, this will run immediately;
+     * before that, it will queue up an importer instead.
+     *
+     * @param {importer} f
+     */
     importer(f) {
         if(this.importers) {
             this.importers.push(f)
