@@ -7,18 +7,14 @@ class EximportBridge extends Promise {
     static get bridge() {
         return new EximportBridge()
     }
-    constructor(f) {
-        if(f) {
-            super(f)
-        } else {
-            let commit
-            super(resolve => commit = resolve)
-            this.commit = commit
-            /**
-             * @type {{[symbol: string]: *}}
-             */
-            this.ns = {}
-        }
+    constructor() {
+        let commit
+        super(resolve => commit = resolve)
+        this.commit = commit
+        /**
+         * @type {{[symbol: string]: *}}
+         */
+        this.ns = {}
     }
     importer(f) {
         this.then(
