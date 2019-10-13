@@ -35,6 +35,32 @@ class EximportBridge {
         this.ns = {}
     }
     /**
+     *
+     * @param {EximportBridge} required
+     * @param {?*} map
+     */
+    exportFrom(required, map = null) {
+        if(map) {
+            required.then(
+                ns => {
+                    for(const [l, r] of Object.entries(map)) {
+                        this.ns[l] = ns[r]
+                    }
+                }
+            )
+        } else {
+            required.then(
+                ns => Object.assign(
+                    this.ns,
+                    ns,
+                    {
+                        default: this.ns.default
+                    }
+                )
+            )
+        }
+    }
+    /**
      * Deprecated.
      *
      * This adds an importer hook. Usually this would be added implicitly via
