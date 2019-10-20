@@ -5,6 +5,24 @@
  * @typedef {(namespace: exported_namespace) => *} importer
  */
 
+class EximportBridgeNamespace {
+    /**
+     *
+     * @param {EximportBridge} bridge
+     */
+    constructor(bridge) {
+        Object.defineProperty(
+            this,
+            "_bridge",
+            {
+                "configurable": false,
+                "enumerable": false,
+                "value": bridge,
+                "writable": false,
+            }
+        )
+    }
+}
 class EximportBridge {
     /**
      * This is a convenience property so you can just do
@@ -29,10 +47,7 @@ class EximportBridge {
                 resolve(this.ns)
             }
         )
-        /**
-         * @type {exported_namespace}
-         */
-        this.ns = {}
+        this.ns = new EximportBridgeNamespace(this)
     }
     /**
      *
