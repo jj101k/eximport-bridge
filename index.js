@@ -76,7 +76,7 @@ class EximportBridge {
         }
     }
     /**
-     * Deprecated.
+     * @deprecated
      *
      * This adds an importer hook. Usually this would be added implicitly via
      * eximport, typically in a pattern like:
