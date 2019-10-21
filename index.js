@@ -39,7 +39,7 @@ class EximportBridge {
         this.state = null
         this.promise = new Promise(
             /**
-             * @param {exported_namespace} ns
+             * @param {EximportBridgeNamespace} ns
              */
             resolve => this.commit = ns => {
                 this.state = true
@@ -101,6 +101,7 @@ class EximportBridge {
      *
      * @param {(ns: exported_namespace) => *} onfulfilled
      * @param {?(reason?: *) => *} onrejected
+     * @returns {Promise}
      */
     then(onfulfilled, onrejected = null) {
         if(this.state !== null) {
