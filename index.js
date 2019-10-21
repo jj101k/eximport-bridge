@@ -33,21 +33,30 @@ class EximportBridge {
         return new EximportBridge()
     }
     constructor() {
+        this.ns = new EximportBridgeNamespace(this)
+        /**
+         * @type {((ns: EximportBridgeNamespace) => *)[]}
+         */
+        this.onfulfilled = []
+        /**
+         * @type {((e: *) => *)[]}
+         */
+        this.onrejected = []
         /**
          * @type {?boolean}
          */
         this.state = null
-        this.promise = new Promise(
-            /**
-             * @param {EximportBridgeNamespace} ns
-             */
-            resolve => this.commit = ns => {
-                this.state = true
-                Object.assign(this.ns, ns)
-                resolve(this.ns)
-            }
-        )
-        this.ns = new EximportBridgeNamespace(this)
+    }
+    /**
+     *
+     * @param {exported_namespace} ns
+     */
+    commit(ns) {
+        this.state = true
+        Object.assign(this.ns, ns)
+        for(const h of this.onfulfilled) {
+            h(this.ns)
+        }
     }
     /**
      *
@@ -99,6 +108,14 @@ class EximportBridge {
      * evaluated before return if the promise is already resolved. This allows
      * you to get immediate evaluation in contexts which support it.
      *
+     * This is _not_ a Promise. This doesn't act like a promise on `then()`. But
+     * it will return a Promise at that time.
+     *
+     * The key difference is that this will run the handler in the current
+     * execution context, immediately if possible, whereas this returns a true
+     * Promise which will never execute a `.then()` itself before the current
+     * execution context ends.
+     *
      * @param {(ns: exported_namespace) => *} onfulfilled
      * @param {?(reason?: *) => *} onrejected
      * @returns {Promise}
@@ -113,7 +130,10 @@ class EximportBridge {
                 return Promise.reject(null)
             }
         } else {
-            return this.promise.then(onfulfilled, onrejected)
+            return new Promise((resolve, reject) => {
+                this.onfulfilled.push(ns => resolve(onfulfilled(ns)))
+                this.onrejected.push(e => reject(onrejected ? onrejected(e) : e))
+            })
         }
     }
 }
