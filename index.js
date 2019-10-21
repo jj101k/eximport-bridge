@@ -109,7 +109,7 @@ class EximportBridge {
             } else if(onrejected) {
                 return Promise.resolve(onrejected())
             } else {
-                return this
+                return Promise.reject(null)
             }
         } else {
             return this.promise.then(onfulfilled, onrejected)
