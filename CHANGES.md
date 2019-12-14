@@ -1,3 +1,8 @@
+# 2.0.0
+
+- Complete rewrite to use a generator instead of promises, dropping `.then()`
+  (no longer needed) and `.importer()` (previously deprecated).
+
 # 1.1.1
 
 - Forward compat: calling `.then()` without a reject handler will now return a
