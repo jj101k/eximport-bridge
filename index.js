@@ -48,6 +48,8 @@ class EximportBridge {
         this.state = null
     }
     /**
+     * This is to be run at the end of an exporting file, to pick up any symbols
+     * which would not be exported inline.
      *
      * @param {exported_namespace} ns
      */
@@ -59,9 +61,11 @@ class EximportBridge {
         }
     }
     /**
+     * This adds another eximport bridge's export to this - ie, supports `export
+     * ... from "..."` syntax.
      *
      * @param {EximportBridge} required
-     * @param {?*} map
+     * @param {?*} map A map of names on this bridge to names on the supplied bridge
      */
     exportFrom(required, map = null) {
         if(map) {
