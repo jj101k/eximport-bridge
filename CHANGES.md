@@ -1,6 +1,6 @@
 # 1.1.1
 
-- Forward compay: calling `.then()` without a reject handler will now return a
+- Forward compat: calling `.then()` without a reject handler will now return a
   rejected native `Promise` rather than the bridge object
 - `.then()` arguments are now executable in the current context, so that it's
   possible to finish synchronously while using a `.then()` handler. Please note
