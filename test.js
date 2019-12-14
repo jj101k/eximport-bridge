@@ -1,5 +1,5 @@
 const bridge_class = require("./index")
 const assert = require("assert")
 assert.ok(bridge_class, "Class exists")
-const bridge = bridge_class.bridge
-assert.ok(bridge, "Convenience property works")
+const bridge = bridge_class.prepareBridge([])
+assert.ok(bridge, "Convenience method works")

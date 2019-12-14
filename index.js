@@ -7,57 +7,128 @@
 
 class EximportBridgeNamespace {
     /**
+     * Builds a namespace prepared to export the given names (where `null`
+     * exposes that an `export * from...` is present)
      *
      * @param {EximportBridge} bridge
+     * @param {(?string)[]} names
      */
-    constructor(bridge) {
+    constructor(bridge, names) {
         Object.defineProperty(
             this,
             "_bridge",
             {
-                "configurable": false,
-                "enumerable": false,
-                "value": bridge,
-                "writable": false,
+                configurable: false,
+                enumerable: false,
+                value: bridge,
+                writable: false,
             }
         )
+        /**
+         * @type {number} If nonzero, the module contains an `export * from ...`
+         *  which means its exports aren't known until all such lines are hit.
+         */
+        let export_stars = 0
+        Object.defineProperty(
+            this,
+            "_exportStars",
+            {
+                configurable: false,
+                enumerable: false,
+                get: () => export_stars,
+            }
+        )
+
+        /**
+         * @type {{[name: string]: *}}
+         */
+        const stored_values = {}
+        for(const n of names) {
+            if(n === null) {
+                export_stars++
+            } else {
+                Object.defineProperty(
+                    this,
+                    n,
+                    {
+                        get: () => {
+                            if(n in stored_values) {
+                                return stored_values[n]
+                            }
+                            let g
+                            do {
+                                g = this._bridge.generator.next()
+                                if(n in stored_values) {
+                                    return stored_values[n]
+                                }
+                            } while(!g.done)
+                            return undefined
+                        },
+                        set: v => {
+                            stored_values[n] = v
+                        },
+                        enumerable: true,
+                    }
+                )
+            }
+        }
     }
 }
 class EximportBridge {
     /**
-     * This is a convenience property so you can just do
-     * `require("eximport-bridge").bridge` rather than `(const b =
-     * require("eximport-bridge"); new b())`
+     * This returns a bridge prepared to export the given names (where `null`
+     * exposes that an `export * from...` is present)
+     *
+     * @param {(?string)[]} names
+     * @returns {EximportBridge}
      */
-    static get bridge() {
-        return new EximportBridge()
+    static prepareBridge(names) {
+        return new EximportBridge(names)
     }
-    constructor() {
-        this.ns = new EximportBridgeNamespace(this)
-        /**
-         * @type {((ns: EximportBridgeNamespace) => *)[]}
-         */
-        this.onfulfilled = []
-        /**
-         * @type {((e: *) => *)[]}
-         */
-        this.onrejected = []
-        /**
-         * @type {?boolean}
-         */
-        this.state = null
+    /**
+     * Builds a bridge prepared to export the given names (where `null` exposes
+     * that an `export * from...` is present)
+     *
+     * @param {(?string)[]} names
+     */
+    constructor(names) {
+        this.ns = new EximportBridgeNamespace(this, names)
+        this.exportStarsSeen = 0
     }
     /**
      * This is to be run at the end of an exporting file, to pick up any symbols
      * which would not be exported inline.
      *
+     * This must run in the context of the source code so that possible
+     * reassignment works consistently.
+     *
      * @param {exported_namespace} ns
      */
     commit(ns) {
-        this.state = true
         Object.assign(this.ns, ns)
-        for(const h of this.onfulfilled) {
-            h(this.ns)
+    }
+     /**
+     * This is the harness that runs the code on the exported module.
+     *
+     * In most cases, this will just run to the first injected `yield`, but if
+     * an `export * from ...` is present it will run to that line.
+     *
+     * After running, all the export names, if not necessarily the values, will
+     * be known to the bridge.
+     *
+     * It's expected that the inner code will `yield` immediately after every
+     * symbol it exports, so that cyclic imports can work
+     *
+     * @param {() => Generator} f
+     */
+    execute(f) {
+        this.generator = f()
+        if(this.ns._exportStars > this.exportStarsSeen) {
+            let g
+            do {
+                g = this.generator.next()
+                if(this.ns._exportStars <= this.exportStarsSeen) break
+            } while(!g.done)
         }
     }
     /**
@@ -69,76 +140,52 @@ class EximportBridge {
      */
     exportFrom(required, map = null) {
         if(map) {
-            required.then(
-                ns => {
-                    for(const [l, r] of Object.entries(map)) {
-                        this.ns[l] = ns[r]
-                    }
-                }
-            )
-        } else {
-            required.then(
-                ns => Object.assign(
-                    this.ns,
-                    ns,
-                    {
-                        default: this.ns.default
-                    }
-                )
-            )
-        }
-    }
-    /**
-     * @deprecated
-     *
-     * This adds an importer hook. Usually this would be added implicitly via
-     * eximport, typically in a pattern like:
-     *
-     * ```
-     *  var Foo = undefined;
-     *  require("foo").importer(ns => Foo = ns.Foo)
-     * ```
-     *
-     * Once the file has been completely loaded, this will run immediately;
-     * before that, it will queue up an importer instead.
-     *
-     * @param {importer} f
-     */
-    importer(f) {
-        return this.then(ns => f(ns))
-    }
-    /**
-     * This works like Promise.prototype.then() except that the function will be
-     * evaluated before return if the promise is already resolved. This allows
-     * you to get immediate evaluation in contexts which support it.
-     *
-     * This is _not_ a Promise. This doesn't act like a promise on `then()`. But
-     * it will return a Promise at that time.
-     *
-     * The key difference is that this will run the handler in the current
-     * execution context, immediately if possible, whereas this returns a true
-     * Promise which will never execute a `.then()` itself before the current
-     * execution context ends.
-     *
-     * @param {(ns: exported_namespace) => *} onfulfilled
-     * @param {?(reason?: *) => *} onrejected
-     * @returns {Promise}
-     */
-    then(onfulfilled, onrejected = null) {
-        if(this.state !== null) {
-            if(this.state) {
-                return Promise.resolve(onfulfilled(this.ns))
-            } else if(onrejected) {
-                return Promise.resolve(onrejected())
-            } else {
-                return Promise.reject(null)
+            for(const [l, r] of Object.entries(map)) {
+                this.ns[l] = required.ns[r]
             }
         } else {
-            return new Promise((resolve, reject) => {
-                this.onfulfilled.push(ns => resolve(onfulfilled(ns)))
-                this.onrejected.push(e => reject(onrejected ? onrejected(e) : e))
-            })
+            this.exportStarsSeen++
+            Object.assign(
+                this.ns,
+                required.ns,
+                {
+                    default: this.ns.default
+                }
+            )
         }
+    }
+    /**
+     * This is callable on the importing side to explicitly finish exporting the
+     * file. Until this is called, all symbols have been loaded on demand, which
+     * could cause some surprising behaviour if you're expecting some code after
+     * the last imported symbol to run.
+     */
+    finish() {
+        let g
+        do {
+            g = this.generator.next()
+        } while(!g.done)
+    }
+    /**
+     * This returns a bespoke export object for the importing file, binding the
+     * local names that it wants to the exported names.
+     *
+     * This is in effect a customised subview of the exported namespace.
+     *
+     * @param {{[local: string]: string}} import_to_export
+     */
+    named(import_to_export) {
+        const subview = {}
+        for(const [local, remote] of Object.entries(import_to_export)) {
+            Object.defineProperty(
+                subview,
+                local,
+                {
+                    get: () => this.ns[remote]
+                }
+            )
+        }
+        return subview
     }
 }
 
